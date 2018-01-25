@@ -1,17 +1,17 @@
 import numpy as np
 
 class SudokuBoard():
-    def __init__(self, initboard, solnboard, hintsmask=None):
+    def __init__(self, initstate, hintsmask=None, no_replacements=False):
         """ BOTH ARGS must be length-81 STRINGS"""
-        self._board = initboard
-        self._solution = solnboard
+        self._state = initstate
+        self._no_replacements = no_replacements
         if hintsmask == None: self._initialize_hintsmask()
         else: self._hintsmask = hintsmask
 
     def _initialize_hintsmask(self):
-        self._hintsmask = "" # NOTE: 1 for changeable values, 0 for hints
+        self._hintsmask = "" # NOTE: 1 for changeable values, 0 for hints/unchangeable values
         for i in range(81):
-            if (self._board[i] == "0"): self._hintsmask += "1"
+            if (self._state[i] == "0"): self._hintsmask += "1"
             else: self._hintsmask += "0"
 
     def __str__(self):
@@ -19,7 +19,7 @@ class SudokuBoard():
         for i in range(3):
             for j in range(3):
                 for k in range(3):
-                    final += "|"+self._board[i*27+j*9+k*3:i*27+j*9+k*3+3]
+                    final += "|"+self._state[i*27+j*9+k*3:i*27+j*9+k*3+3]
                 final += "|\n"
             final += "-"*13 + "\n"
         return final
@@ -29,77 +29,87 @@ class SudokuBoard():
         num, i, j = indices
         if self._hintsmask[i*9+j]=="1":
             # NOTE: we input num+1 because indices are of the range [0,8]
-            self._board = self._board[:i*9+j]+str(num+1)+self._board[i*9+j+1:]
+            self._state = self._state[:i*9+j]+str(num+1)+self._state[i*9+j+1:]
+            if self._no_replacements:
+                self._hintsmask = self._hintsmask[:i*9+j]+"0"+self._hintsmask[i*9+j+1:]
 
     def generate_matrix(self):
-        return np.array([[[int(self._board[i*9+j]) for j in range(9)] for i in range(9)],
+        return np.array([[[int(self._state[i*9+j])/9.0 for j in range(9)] for i in range(9)],
             [[int(self._hintsmask[i*9+j]) for j in range(9)] for i in range(9)]])
 
     def will_terminate(self, indices):
         num, i, j = indices
-        x = self._board
-        if self._hintsmask[i*9+j] == "1": x = self._board[:i*9+j]+str(num+1)+self._board[i*9+j+1:]
+        x = self._state
+        if self._hintsmask[i*9+j] == "1": x = self._state[:i*9+j]+str(num+1)+self._state[i*9+j+1:]
         for i in range(81):
             if x[i] == "0": return False
         return True
 
     def is_terminal(self):
         for i in range(81):
-            if self._board[i] == "0": return False
+            if self._state[i] == "0": return False
         return True
 
     def generate_next_board(self,indices):
         num, i, j = indices
-        x = SudokuBoard(self._board, self._solution, self._hintsmask)
+        x = SudokuBoard(self._state, self._hintsmask, self._no_replacements)
         if x._hintsmask[i*9+j]=="1":
             # NOTE: we input num+1 because indices are of the range [0,8]
-            x._board = x._board[:i*9+j]+str(num+1)+x._board[i*9+j+1:]
+            x._state = x._state[:i*9+j]+str(num+1)+x._state[i*9+j+1:]
         return x
 
-    def completion(self):
-        """ computes the percentage of fillable cells correctly filled so far"""
-        num_errors = 0
-        for i in range(81):
-            if self._board[i] != self._solution[i]: num_errors += 1
-        num_fillable_cells = 0
-        for i in range(81):
-            if self._hintsmask[i]=="1": num_fillable_cells += 1
-        return 1-float(num_errors)/num_fillable_cells
 
 class SudokuGame():
-    def __init__(self, startboard, maxmoves=100, keeptrack=False):
-        self._board = SudokuBoard(startboard._board, startboard._solution, startboard._hintsmask)
+    def __init__(self, startstate, solution, no_replacements=False, scoring_scheme=1, maxmoves=100, keeptrack=True):
+        self._board = SudokuBoard(startstate, no_replacements=no_replacements)
+        self._solution = solution
         self._gameSequence = []
         self._keeptrack = keeptrack
         self._nummoves = 0
         self._maxmoves = maxmoves
+        x = 0
+        for i in range(81):
+            if self._board._hintsmask[i] == "0": x += 1
+        self._numhints = x
+        if scoring_scheme == 1:
+            self.getFinalScore = self._completion
+        elif scoring_scheme == 2:
+            self.getFinalScore = self._numConditionsMet
+        elif scoring_scheme == 3:
+            self.getFinalScore = self._isCorrect
 
     def inputAction(self, action):
         self._board.changevalue(action)
         self._nummoves += 1
-        if self._keeptrack: self._gameSequence.append(self._board._board)
+        if self._keeptrack: self._gameSequence.append(action)
 
     def gameHasEnded(self):
         # NOTE: we will stop the game if it has already taken MAXMOVES steps
         return self._board.is_terminal() or self._nummoves > self._maxmoves
 
-    def getFinalScore(self):
-        return self._board.completion()
+    def _completion(self):
+        """ computes the percentage of fillable cells correctly filled so far"""
+        num_errors = 0
+        for i in range(81):
+            if self._board._state[i] != self._solution[i]: num_errors += 1
+        return 1-float(num_errors)/(81-self._numhints)
+
+    def _isCorrect(self):
+        """ returns 1 if the sudoku board has been solved correctly """
+        if self._board._state == self._solution: return 1
+        else: return 0
+
+    def _numConditionsMet(self):
+        # TODO: implement this correctly
+        return 1
 
     def num_actions_taken(self):
         return self._nummoves
 
     def printGameSequence(self):
         # NOTE: We can write another method that gives a more readable trace of moves
-        for c in range(len(self._gameSequence)):
-            final = "-"*13 + "\n"
-            for i in range(3):
-                for j in range(3):
-                    for k in range(3):
-                        final += "|"+self._gameSequence[c][i*27+j*9+k*3:i*27+j*9+k*3+3]
-                    final += "|\n"
-                final += "-"*13 + "\n"
-            print(final)
+        for i in range(len(self._gameSequence)):
+            print(self._gameSequence[i])
 
 class MCTSnode():
     def __init__(self, board, parent=0, lastAction=0):
@@ -191,8 +201,9 @@ def MCTSrun(node, cpuct, neuralnet):
         currentnode = currentnode.get_parent()
         currentnode.update_mcts_stats(newvalue, nextAction)
 
-def PlayEpisode(startboard, numRuns, cpuct, temp, neuralnet):
-    gameinstance = SudokuGame(startboard)
+def PlayEpisode(startstate, solution, numRuns, cpuct, temp, neuralnet, no_replacements=False, scoring_scheme=1, maxmoves=100):
+    gameinstance = SudokuGame(startstate, solution, no_replacements, scoring_scheme, maxmoves)
+    startboard = SudokuBoard(startstate, no_replacements=no_replacements)
     currentnode = MCTSnode(startboard)
     probvec, v = neuralnet(currentnode.generate_matrix())
     currentnode.update_prob_vector(probvec)
@@ -217,13 +228,3 @@ def PlayEpisode(startboard, numRuns, cpuct, temp, neuralnet):
             for i in range(len(states)):
                 examples.append((states[i],probvectors[i],z))
             return examples,gameinstance
-
-def randomprobs(matrix):
-    return np.random.random_sample((9,9,9))
-
-def fakeneuralnet(matrix):
-    value = np.random.random_sample()
-    return (randomprobs(matrix), value)
-
-sample = "000500006020010000030000000900600050010020000000000000500804000100000270000000300"
-soln = "791542836625318947834769521947683152316425798258197463572834619183956274469271385"

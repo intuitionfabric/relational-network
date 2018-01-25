@@ -1,14 +1,61 @@
 import numpy as np
-#import multiprocessing as mp
+import multiprocessing as mp
 import torch.multiprocessing as mp
-from sudoku import SudokuBoard, SudokuGame, MCTSnode, MCTSrun, PlayEpisode
+from sudoku import *
+from datagen import *
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+import torch.nn.init as init
+from torch.autograd import Variable
 
-def randomprobs(matrix):
-    return np.random.random_sample((9,9,9))
+def RunEpisodesSerial(dataset, n_eps, n_runs, cpuct, temp, neuralnet, no_replacements=False, scoring_scheme=1, maxmoves=100):
+    """
+    Run episodes with one CPU core. Each episode picks a random sudoku problem from the dataset.
 
-def fakeneuralnetwork(matrix):
-    value = np.random.random_sample()
-    return (randomprobs(matrix), value)
+    Args:
+    dataset - list of (question, answer) tuples of 81-length strings
+    n_eps - number of independent episodes to run
+    n_runs - number of MCTS runs per step/turn in an episode
+    cpuct&temp - exploration hyperparameters. <1 to exploit
+    no_replacements - False if the game allows the player to replace previously filled cells
+    scoring_scheme - 1, 2 or 3. see documentation for explanation of the schemes
+    maxmoves - maximum moves the player can take before game stops. this is the resignation threshold
+
+    Returns
+    list of training examples, each of the form (game state, probability vector, game final score)
+    """
+
+    examples = []
+    indices = np.arange(len(dataset))
+
+    print("Running episodes in serial.", end="")
+    for i in range(n_eps):
+        drawn_index = np.random.choice(indices)
+        result, _ = PlayEpisode(dataset[int(drawn_index)][0], dataset[int(drawn_index)][1], n_runs, cpuct, temp, neuralnet, no_replacements, scoring_scheme, maxmoves)
+        examples += result
+        print(".", end="")
+    print("Done!")
+    return examples
+
+def EvaluateSolverSerial(dataset, n_eps, n_runs, cpuct, temp, neuralnet, no_replacements=False, scoring_scheme=1, maxmoves=100):
+    """
+    Same as RunEpisodesSerial, but returns instead a list of game final scores. Since you are evaluating the solver,
+    low values of cpuct and temp are recommended. 
+    """
+    scores = []
+    indices = np.arange(len(dataset))
+
+    print("Running episodes in serial.", end="")
+    for i in range(n_eps):
+        drawn_index = np.random.choice(indices)
+        _ , gameinstance = PlayEpisode(dataset[int(drawn_index)][0], dataset[int(drawn_index)][1], n_runs, cpuct, temp, neuralnet, no_replacements, scoring_scheme, maxmoves)
+        scores.append(gameinstance.getFinalScore())
+        print(".", end="")
+    print("Done!")
+    return scores
+
 
 def RunEpisodes(dataset, n_eps, n_runs, n_procs, cpuct, temp, neuralnet):
     """
@@ -76,32 +123,4 @@ def EvaluateSolver(testset, n_eps, n_runs, n_procs, neuralnet, cpuct=0.05, temp=
         for p in processes:
             p.join()
 
-    return scores
-
-def RunEpisodesSerial(dataset, n_eps, n_runs, cpuct, temp, neuralnet):
-    examples = []
-    indices = np.arange(len(dataset))
-
-    print("Running episodes in serial.", end="")
-    for i in range(n_eps):
-        drawn_index = np.random.choice(indices)
-        startboard = SudokuBoard(dataset[int(drawn_index)][0], dataset[int(drawn_index)][1])
-        result, _ = PlayEpisode(startboard, n_runs, cpuct, temp, neuralnet)
-        examples += result
-        print(".", end="")
-    print("Done!")
-    return examples
-
-def EvaluateSolverSerial(testset, n_eps, n_runs, neuralnet, cpuct=0.1, temp=0.2):
-    scores = []
-    indices = np.arange(len(testset))
-
-    print("Running episodes in serial.", end="")
-    for i in range(n_eps):
-        drawn_index = np.random.choice(indices)
-        startboard = SudokuBoard(testset[int(drawn_index)][0], testset[int(drawn_index)][1])
-        _ , gameinstance = PlayEpisode(startboard, n_runs, cpuct, temp, neuralnet)
-        scores.append(gameinstance.getFinalScore())
-        print(".", end="")
-    print("Done!")
     return scores
