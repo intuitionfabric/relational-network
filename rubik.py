@@ -66,14 +66,32 @@ class RubiksCube():
         if recent_history != []: self._recent_history = recent_history
         else: self._recent_history = [rawstate]
 
-"""
+    def generate_matrix(self):
+        fullmatrix = []
+        for state in self._recent_history[-1::-1]:
+            rubiks = []
+            for i in range(54): rubiks.append(convert(self._state[i])/6.0)
+            rubiksnew = [[0 for i in range(3)] + [rubiks[36],rubiks[37],rubiks[38]] + [0 for i in range(3)],
+                         [0 for i in range(3)] + [rubiks[39],rubiks[40],rubiks[41]] + [0 for i in range(3)],
+                         [0 for i in range(3)] + [rubiks[42],rubiks[43],rubiks[44]] + [0 for i in range(3)],
+                         [rubiks[27],rubiks[28],rubiks[29],rubiks[0],rubiks[1],rubiks[2],rubiks[9],rubiks[10],rubiks[11]],
+                         [rubiks[30],rubiks[31],rubiks[32],rubiks[3],rubiks[4],rubiks[5],rubiks[12],rubiks[13],rubiks[14]],
+                         [rubiks[33],rubiks[34],rubiks[35],rubiks[6],rubiks[7],rubiks[8],rubiks[15],rubiks[16],rubiks[17]],
+                         [0 for i in range(3)] + [rubiks[45],rubiks[46],rubiks[47]] + [rubiks[18],rubiks[19],rubiks[20]],
+                         [0 for i in range(3)] + [rubiks[48],rubiks[49],rubiks[50]] + [rubiks[21],rubiks[22],rubiks[23]],
+                         [0 for i in range(3)] + [rubiks[51],rubiks[52],rubiks[53]] + [rubiks[24],rubiks[25],rubiks[26]]]
+            fullmatrix.append(rubiksnew)
+        current_len = len(fullmatrix)
+        for i in range(5-current_len): fullmatrix.append([[0 for i in range(9)] for j in range(9)])
+        return np.array(fullmatrix)
+
     def plot_cube_alt(self, save=False, fname="rubikscube", title='Rubiks cube'):
+        """
+        Plot the rubik's cube as a 9x9 matrix. See documentation for why
 
-        #Plot the rubik's cube as a 9x9 matrix. See documentation for why
-
-        #Use no arguments - a plt.figure() shows up
-        #Use save = True to save the figure instead into the "figures" folder in the same directory
-
+        Use no arguments - a plt.figure() shows up
+        Use save = True to save the figure instead into the "figures" folder in the same directory
+        """
         rubiks = []
         for i in range(54): rubiks.append(convert(self._state[i]))
         rubiksnew = [[0 for i in range(3)] + [rubiks[36],rubiks[37],rubiks[38]] + [0 for i in range(3)],
@@ -91,7 +109,7 @@ class RubiksCube():
         plt.tight_layout()
         if save: plt.savefig("figures/"+fname+".png")
         else: plt.show()
-"""
+
     def plot_cube(self, save=False, fname="rubikscube", title='Rubiks cube'):
         """
         Plot the rubik's cube as a 9x12 matrix as if the faces of the cube are unwrapped
@@ -116,25 +134,6 @@ class RubiksCube():
         plt.tight_layout()
         if save: plt.savefig("figures/"+fname+".png")
         else: plt.show()
-
-    def generate_matrix(self):
-        fullmatrix = []
-        for state in self._recent_history[-1::-1]:
-            rubiks = []
-            for i in range(54): rubiks.append(convert(self._state[i])/6.0)
-            rubiksnew = [[0 for i in range(3)] + [rubiks[36],rubiks[37],rubiks[38]] + [0 for i in range(3)],
-                         [0 for i in range(3)] + [rubiks[39],rubiks[40],rubiks[41]] + [0 for i in range(3)],
-                         [0 for i in range(3)] + [rubiks[42],rubiks[43],rubiks[44]] + [0 for i in range(3)],
-                         [rubiks[27],rubiks[28],rubiks[29],rubiks[0],rubiks[1],rubiks[2],rubiks[9],rubiks[10],rubiks[11]],
-                         [rubiks[30],rubiks[31],rubiks[32],rubiks[3],rubiks[4],rubiks[5],rubiks[12],rubiks[13],rubiks[14]],
-                         [rubiks[33],rubiks[34],rubiks[35],rubiks[6],rubiks[7],rubiks[8],rubiks[15],rubiks[16],rubiks[17]],
-                         [0 for i in range(3)] + [rubiks[45],rubiks[46],rubiks[47]] + [rubiks[18],rubiks[19],rubiks[20]],
-                         [0 for i in range(3)] + [rubiks[48],rubiks[49],rubiks[50]] + [rubiks[21],rubiks[22],rubiks[23]],
-                         [0 for i in range(3)] + [rubiks[51],rubiks[52],rubiks[53]] + [rubiks[24],rubiks[25],rubiks[26]]]
-            fullmatrix.append(rubiksnew)
-        current_len = len(fullmatrix)
-        for i in range(5-current_len): fullmatrix.append([[0 for i in range(9)] for j in range(9)])
-        return np.array(fullmatrix)
 
     def __str__(self):
         output = ""
@@ -162,7 +161,7 @@ class RubiksCube():
 
     def apply_move(self, move):
         """
-        Apply one of the defined 21 possible moves (0<= move <= 20) on this RubiksCube object
+        Apply one of the defined 15 possible moves (0<= move <= 14) on this RubiksCube object
         """
         if move == 0:
             self.apply_shift(SHIFTL1,3)
@@ -263,6 +262,9 @@ class RubiksCube():
     def is_solved(self):
         return self._state in TERMINAL_STATES
 
+    def get_score(self):
+        return 1 if self.is_solved() else 0
+
     def get_state(self):
         return self._state
 
@@ -279,6 +281,7 @@ class RubikGame():
     def input_move(self, move):
         if move < 0 and move > 20:
             print("Invalid move entered: ", move)
+            return None
         self._cube.apply_move(move)
         if self._keep_track:
             self._state_sequence.append(self._cube.get_state())
@@ -288,8 +291,7 @@ class RubikGame():
         return self._cube.is_terminal()
 
     def get_score(self):
-        if self._cube.is_solved(): return 1
-        return 0
+        return self._cube.get_score()
 
     def num_moves_taken(self):
         return self._cube.get_moves_taken()
@@ -300,8 +302,8 @@ class RubikGame():
     def show_cube(self):
         self._cube.plot_cube()
 
-class RubiksMCTSnode():
-    def __init__(self, cube, parent=0, last_move=0):
+class MCTSnode():
+    def __init__(self, cube, parent=0, last_move=None):
         self._children = {}
         self._parent = parent
         self._last_move = last_move
@@ -311,7 +313,8 @@ class RubiksMCTSnode():
         self._cube = cube
 
     def __str__(self):
-        return str(self._cube)+"N = "+str(self._N)+"\nno. of children:"+str(len(self._children.keys()))
+        return str(self._cube)+"N = "+str(self._N)+"\nQ = "+str(self._Q)+"\nno. of children:"+ \
+            str(len(self._children.keys()))+"\nsum(N) = "+str(np.sum(self._N))
 
     def is_leaf(self):
         return self._children == {}
@@ -327,17 +330,19 @@ class RubiksMCTSnode():
 
     def get_next_node(self, next_move):
         try: return self._children[next_move]
-        except: None
+        # NOTE: I am not sure if this is the right way to deal with an unexpanded next_move
+        except:
+            return self.make_child_node(next_move)
 
     def get_parent(self):
         return self._parent
 
     def get_last_move(self):
-        if self._last_move != 0: return self._last_move
+        if self._last_move != None: return self._last_move
         return None
 
     def get_N_vector(self):
-        return self._N
+        return self._N[:]
 
     def generate_matrix(self):
         return self._cube.generate_matrix()
@@ -354,8 +359,14 @@ class RubiksMCTSnode():
     def update_prob_vector(self, probvec):
         self._P = probvec
 
+    def is_terminal_state(self):
+        return self._cube.is_terminal()
+
     def is_terminating_edge(self, target_move):
         return (not target_move in self._children) or self._cube.will_terminate(target_move)
+
+    def get_score(self):
+        return self._cube.get_score()
 
     def get_max_depth(self):
         if self.is_leaf(): return 0
@@ -364,26 +375,29 @@ class RubiksMCTSnode():
     def set_as_root(self):
         self._parent = 0
 
-def RubiksMCTSrun(node, cpuct, neuralnet):
+def MCTSrun(node, cpuct, neuralnet):
     currentnode = node
     nextmove = currentnode.get_best_move(cpuct)
     while not currentnode.is_terminating_edge(nextmove):
         currentnode = currentnode.get_next_node(nextmove)
-        # NOTE: there is a tendency to expand unexpanded nodes. find out if this is fine
+        #print("nextmove = ",next_move," and current node is ",current_node)
         nextmove = currentnode.get_best_move(cpuct)
     newnode = currentnode.make_child_node(nextmove)
-    probvec, newval = neuralnet(newnode.generate_matrix())
-    newnode.update_prob_vector(probvec)
+    if newnode.is_terminal_state():
+        newval = newnode.get_score()
+    else:
+        probvec, newval = neuralnet(newnode.generate_matrix())
+        newnode.update_prob_vector(probvec)
     currentnode.update_mcts_stats(newval, nextmove)
     while not currentnode.is_root():
         nextmove = currentnode.get_last_move()
         currentnode = currentnode.get_parent()
         currentnode.update_mcts_stats(newval, nextmove)
 
-def RubiksPlayEpisode(startstate, numRuns, cpuct, temp, neuralnet, max_moves=100):
+def PlayEpisode(startstate, numRuns, cpuct, temp, neuralnet, max_moves=100):
     gameinstance = RubikGame(startstate, max_moves=max_moves, keep_track=True)
     startcube = RubiksCube(startstate, max_moves=max_moves)
-    currentnode = RubiksMCTSnode(startcube)
+    currentnode = MCTSnode(startcube)
     probvec, v = neuralnet(currentnode.generate_matrix())
     currentnode.update_prob_vector(probvec)
     examples = []
@@ -406,4 +420,25 @@ def RubiksPlayEpisode(startstate, numRuns, cpuct, temp, neuralnet, max_moves=100
             z = gameinstance.get_score()
             for i in range(len(states)):
                 examples.append((states[i],probvectors[i],z))
-            return examples,gameinstance
+            return examples,gameinstance,superroot
+
+def randomprobs(matrix):
+    return np.random.random_sample(18)
+
+def fakeneuralnetwork(matrix):
+    value = np.random.random_sample()
+    return (randomprobs(matrix), value)
+
+raw = "RRRRRRRRRBBBBBBBBBOOOOOOOOOGGGGGGGGGWWWWWWWWWYYYYYYYYY"
+problem3 = 'BBBBBBRRWYOOYOOBBBGGGGGGYOORRWRRWGGGWWWWWWOOOYYRYYRYYR'
+problem1 = 'RRRRRRRRRBWBBWBBWBOOOOOOOOOGYGGYGGYGWWWGGGWWWYYYBBBYYY'
+problem5 = 'YOORRWRRBGGRBBYYYYGYROOROOWBBBBGWOGWWBYOWWOWWGGRYYRBGG'
+cube = RubiksCube(problem3)
+root = MCTSnode(cube)
+
+print("Starting cube state: ")
+cube.plot_cube()
+examples, game, root = PlayEpisode(problem3,100000,0.1,0.1,fakeneuralnetwork, 10)
+print(root)
+print("Game score = ",game.get_score())
+game.show_cube()
