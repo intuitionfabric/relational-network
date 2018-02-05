@@ -1,10 +1,5 @@
 import random
 
-from rubik import *
-
-raw = "RRRRRRRRRBBBBBBBBBOOOOOOOOOGGGGGGGGGWWWWWWWWWYYYYYYYYY"
-problem5 = 'YOORRWRRBGGRBBYYYYGYROOROOWBBBBGWOGWWBYOWWOWWGGRYYRBGG' # distance-5 problem
-problem3 = 'BBBBBBRRWYOOYOOBBBGGGGGGYOORRWRRWGGGWWWWWWOOOYYRYYRYYR' # distance-3 problem
 fname = "sudoku17.txt"
 
 def extract(filename):
@@ -32,16 +27,3 @@ def generate(dataset, num_new_hints, num_probs):
         problem = add_hints(problem, num_new_hints)
         newset.append(problem)
     return newset
-
-def generate_cubes(num_states, startstate, distance):
-    """
-    Generates a list of randomly generated rubik's cube states
-    """
-    states = []
-    for i in range(num_states):
-        x = RubiksCube(startstate)
-        for j in range(distance):
-            x.apply_move(random.randint(0,20))
-        states.append(x.get_state())
-    states = list(set(states))
-    return states
