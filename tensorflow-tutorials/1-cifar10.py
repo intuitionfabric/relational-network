@@ -29,7 +29,7 @@ model.compile(loss='binary_crossentropy',
               metrics=['acc'])
 
 
-model_dir = os.path.join(os.getcwd(), "models//cifar10").replace("//", "\\")
+model_dir = "./models/cifar10"
 os.makedirs(model_dir, exist_ok=True)
 estimator = tf.keras.estimator.model_to_estimator(keras_model=model,
                                                     model_dir=model_dir)
